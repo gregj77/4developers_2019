@@ -1,0 +1,67 @@
+package com.tomtom.client;
+
+import io.reactivex.BackpressureStrategy;
+import io.reactivex.Flowable;
+import io.reactivex.disposables.Disposables;
+import io.reactivex.internal.schedulers.ExecutorScheduler;
+import io.reactivex.internal.schedulers.TrampolineScheduler;
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.TextEvent;
+import java.awt.event.TextListener;
+
+class QueryForm extends JFrame {
+    private final DefaultListModel<String> model = new DefaultListModel<>();
+    private final ServiceClient serviceClient;
+    private static final Logger LOGGER = LogManager.getLogger(QueryForm.class);
+
+    QueryForm(CloseableHttpAsyncClient client) {
+        serviceClient = new ServiceClient(client);
+
+        TextField query = new TextField();
+        query.setBounds(5, 15, 420, 25);
+        add(query);
+
+        JList<String> results = new JList<>(model);
+        results.setBounds(5, 40, 420, 210);
+        add(results);
+
+        setSize(450, 300);
+        setLayout(null);
+        setVisible(true);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setTitle("Kody pocztowe");
+
+        serviceClient.findAddressByCode(queryCodeStream(query), 10)
+                .observeOn(new ExecutorScheduler(new SwingExecutor()))
+                .subscribe(items -> {
+                    LOGGER.info("GOT RESULTS {}", items.size());
+                    model.clear();
+                    items.forEach(item -> model.addElement(item.toString()));
+                }, err -> {
+                    LOGGER.error("Got ERROR : {} <{}> - {}", err.getMessage(), err.getClass().getName(), err.getStackTrace());
+                }, () -> LOGGER.info("all done!") );
+
+        LOGGER.info("STARTED!");
+    }
+
+    private Flowable<String> queryCodeStream(final TextField textField) {
+        return Flowable.<String>create(observer -> {
+
+            final TextListener listener = evt -> {
+                final String queryText = textField.getText();
+                LOGGER.info("new query {}", queryText);
+                observer.onNext(queryText);
+            };
+            textField.addTextListener(listener);
+
+            observer.setDisposable(Disposables.fromAction(() -> textField.removeTextListener(listener)));
+         }, BackpressureStrategy.LATEST)
+            .publish()
+            .refCount();
+    }
+}
