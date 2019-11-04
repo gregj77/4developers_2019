@@ -1,0 +1,3 @@
+rootProject.name = 'rxconference'
+include 'service'
+include 'client'
