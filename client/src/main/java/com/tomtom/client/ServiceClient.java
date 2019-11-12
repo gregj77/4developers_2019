@@ -26,28 +26,18 @@ class ServiceClient {
     }
 
     Flowable<List<CodeToAddress>> findAddressByCode(final Flowable<String> codePartStream, final int limit) {
+        // 1. lookup codes
 
-        final Flowable<List<CodeToAddress>> mappedAddressCodeStream = codePartStream
-                .debounce(500, TimeUnit.MILLISECONDS, Schedulers.computation())
-                .filter(f -> f.length() >= 2)
-                .doOnNext(p -> LOGGER.info("querying - '{}'", p))
-                .map(lookupCode -> {
+        // 2. foreach code get matched addresses
 
-                    final Flowable<String> matchedCodesStream = lookupAddressCodes(lookupCode)
-                            .onErrorReturnItem("lookup error for: " + lookupCode)
-                            .take(10);
+        // 3. merge results into single collection
 
-                    final Flowable<Flowable<List<CodeToAddress>>> fullAddressPointsStream = matchedCodesStream
-                            .map(code -> getAddressForPostalCode(code).onErrorReturnItem(new ArrayList<>()));
+        // 4. return observable collection
 
-                    return Flowable
-                            .merge(fullAddressPointsStream)
-                            .reduce(new ArrayList<CodeToAddress>(), (buffer, item) -> {
-                                buffer.addAll(item);
-                                return buffer;
-                            });
-                })
-                .flatMapSingle(p -> p);
+        /// extras:
+        // filtering, delayed typing, error handling
+
+        final Flowable<List<CodeToAddress>> mappedAddressCodeStream = Flowable.never();
 
         return mappedAddressCodeStream;
 
@@ -55,40 +45,25 @@ class ServiceClient {
 
     private Flowable<String> lookupAddressCodes(final String codePart) {
 
-        return Flowable.<String>create(observer -> {
-            final ResponseHandler<String> retValue = new ResponseHandler<>(String.class);
-            final HttpGet request = new HttpGet(SERVICE_URL + QUERY_CODE_URL + codePart);
-            client.execute(request, retValue);
+        final ResponseHandler<String> retValue = new ResponseHandler<>(String.class);
+        final HttpGet request = new HttpGet(SERVICE_URL + QUERY_CODE_URL + codePart);
+        client.execute(request, retValue);
 
-            retValue.whenComplete((items, error) -> {
+        retValue.whenComplete((items, error) -> {
 
-                if (error != null) {
-                    observer.onError(error);
-                    return;
-                }
+        });
 
-                items.forEach(observer::onNext);
-                observer.onComplete();
-            });
-
-
-        }, BackpressureStrategy.BUFFER);
+        return Flowable.error(new RuntimeException("lookupAddressCodes - not implemented yet!"));
     }
 
     private Flowable<List<CodeToAddress>> getAddressForPostalCode(final String postalCode) {
-        return Flowable.<List<CodeToAddress>>create(observer -> {
-            final ResponseHandler<CodeToAddress> retValue = new ResponseHandler<>(CodeToAddress.class);
-            final HttpGet request = new HttpGet(SERVICE_URL + ADDRESS_LOOKUP_URL + postalCode);
-            client.execute(request, retValue);
-            retValue.whenComplete((result, error) -> {
-                if (null != error) {
-                    observer.onError(error);
-                    return;
-                }
+        final ResponseHandler<CodeToAddress> retValue = new ResponseHandler<>(CodeToAddress.class);
+        final HttpGet request = new HttpGet(SERVICE_URL + ADDRESS_LOOKUP_URL + postalCode);
+        client.execute(request, retValue);
+        retValue.whenComplete((result, error) -> {
 
-                observer.onNext(result);
-                observer.onComplete();
-            });
-        }, BackpressureStrategy.BUFFER);
+        });
+
+        return Flowable.error(new RuntimeException("getAddressForPostalCode - not implemented yet!"));
     }
 }

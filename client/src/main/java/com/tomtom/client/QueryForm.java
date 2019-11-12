@@ -50,18 +50,16 @@ class QueryForm extends JFrame {
     }
 
     private Flowable<String> queryCodeStream(final TextField textField) {
-        return Flowable.<String>create(observer -> {
 
-            final TextListener listener = evt -> {
-                final String queryText = textField.getText();
-                LOGGER.info("new query {}", queryText);
-                observer.onNext(queryText);
-            };
-            textField.addTextListener(listener);
+        // convert text changed events to a stream of events
+        final TextListener listener = evt -> {
+            final String queryText = textField.getText();
+            LOGGER.info("new query {}", queryText);
+        };
 
-            observer.setDisposable(Disposables.fromAction(() -> textField.removeTextListener(listener)));
-         }, BackpressureStrategy.LATEST)
-            .publish()
-            .refCount();
+        textField.addTextListener(listener);
+
+        return Flowable.never();
+
     }
 }
